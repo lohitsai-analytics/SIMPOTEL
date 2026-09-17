@@ -1,0 +1,39 @@
+{
+  "hotel": {
+    "name": "Grand Horizon Hotel",
+    "location": "Visakhapatnam, Andhra Pradesh, India",
+    "address": "Beach Road, Visakhapatnam, Andhra Pradesh, India",
+    "check_in": "2:00 PM",
+    "check_out": "11:00 AM"
+  },
+  "amenities": {
+    "swimming_pool": true,
+    "gym": true,
+    "wifi": true,
+    "parking": true
+  },
+  "rooms": [
+    {
+      "id": "standard",
+      "name": "Standard Room",
+      "max_guests": 2,
+      "price_per_night": 3500
+    },
+    {
+      "id": "deluxe",
+      "name": "Deluxe Room",
+      "max_guests": 3,
+      "price_per_night": 5000
+    },
+    {
+      "id": "family",
+      "name": "Family Room",
+      "max_guests": 4,
+      "price_per_night": 7000
+    }
+  ],
+  "policies": {
+    "breakfast": "Included",
+    "cancellation": "Free cancellation up to 24 hours before check-in."
+  }
+}
