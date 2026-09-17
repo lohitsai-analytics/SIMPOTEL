@@ -1,22 +1,16 @@
 import logging
+import os
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from models.schemas import ChatRequest, AvailabilityRequest
-
-from services.hotel_service import (
-    answer_from_knowledge_base,
-    get_hotel_context,
-)
-
+from services.hotel_service import answer_from_knowledge_base, get_hotel_context
 from services.availability_service import check_availability
 from services.ai_service import generate_response
 
-
-# =========================================================
-# LOGGING
-# =========================================================
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,36 +19,28 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-
-# =========================================================
-# APPLICATION
-# =========================================================
-
 app = FastAPI(
     title="Hotel AI Guest Assistant",
     version="1.0.0",
 )
 
-
-# =========================================================
-# CORS
-# =========================================================
+# Local development plus the deployed Vercel frontend.
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    allowed_origins.append(frontend_url.rstrip("/"))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-
-# =========================================================
-# HEALTH CHECK
-# =========================================================
 
 @app.get("/")
 def root():
@@ -66,63 +52,18 @@ def root():
 
 @app.get("/health")
 def health():
-    return {
-        "status": "healthy"
-    }
+    return {"status": "healthy"}
 
-
-# =========================================================
-# CHAT
-# =========================================================
 
 @app.post("/chat")
 def chat(request: ChatRequest):
-
-    logger.info(
-        "Chat request received: %s",
-        request.message
-    )
+    logger.info("Chat request received: %s", request.message)
 
     try:
-
-        # -------------------------------------------------
-        # STEP 1:
-        # Try deterministic hotel knowledge first.
-        # -------------------------------------------------
-
-        result = answer_from_knowledge_base(
-            request.message
-        )
-
-        # -------------------------------------------------
-        # STEP 2:
-        # If the knowledge base handled the request,
-        # return immediately.
-        #
-        # This includes:
-        # - Check-in
-        # - Check-out
-        # - Swimming pool
-        # - Gym
-        # - Wi-Fi
-        # - Parking
-        # - Breakfast
-        # - Cancellation
-        # - Room suitability
-        # - Availability flow
-        # -------------------------------------------------
+        result = answer_from_knowledge_base(request.message)
 
         if result.get("handled", False):
             return result
-
-        # -------------------------------------------------
-        # STEP 3:
-        # If the deterministic knowledge base cannot answer,
-        # use Gemini.
-        #
-        # Gemini is only used for natural-language reasoning
-        # and conversational questions.
-        # -------------------------------------------------
 
         answer = generate_response(
             request.message,
@@ -138,14 +79,7 @@ def chat(request: ChatRequest):
         }
 
     except Exception:
-        logger.exception(
-            "Chat processing failed."
-        )
-
-        # -------------------------------------------------
-        # FINAL FALLBACK
-        # -------------------------------------------------
-
+        logger.exception("Chat processing failed.")
         return {
             "message": (
                 "I'm unable to process that request right now. "
@@ -157,13 +91,8 @@ def chat(request: ChatRequest):
         }
 
 
-# =========================================================
-# AVAILABILITY
-# =========================================================
-
 @app.post("/availability")
 def availability(request: AvailabilityRequest):
-
     logger.info(
         "Availability request: %s -> %s for %s adults",
         request.check_in,
@@ -172,45 +101,18 @@ def availability(request: AvailabilityRequest):
     )
 
     try:
-
-        # -------------------------------------------------
-        # Deterministic availability logic
-        # -------------------------------------------------
-
-        result = check_availability(
+        return check_availability(
             check_in=request.check_in,
             check_out=request.check_out,
             adults=request.adults,
         )
 
-        return result
-
     except ValueError as exc:
-
-        # -------------------------------------------------
-        # Validation error
-        # -------------------------------------------------
-
-        logger.warning(
-            "Invalid availability request: %s",
-            exc,
-        )
-
-        raise HTTPException(
-            status_code=400,
-            detail=str(exc),
-        )
+        logger.warning("Invalid availability request: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc))
 
     except Exception:
-
-        # -------------------------------------------------
-        # Unexpected server error
-        # -------------------------------------------------
-
-        logger.exception(
-            "Availability check failed."
-        )
-
+        logger.exception("Availability check failed.")
         raise HTTPException(
             status_code=500,
             detail="Unable to check availability right now.",
